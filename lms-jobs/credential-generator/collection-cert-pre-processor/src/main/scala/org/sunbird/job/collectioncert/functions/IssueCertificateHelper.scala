@@ -21,17 +21,24 @@ trait IssueCertificateHelper {
         //validCriteria
         logger.info("issueCertificate i/p event =>"+event)
         val criteria = validateTemplate(template, event.batchId)(config)
+        logger.info("criteria val - {}", criteria)
         //validateEnrolmentCriteria
         val certName = template.getOrElse(config.name, "")
+        logger.info("cert name val - {}", certName)
         val additionalProps: Map[String, List[String]] = ScalaJsonUtil.deserialize[Map[String, List[String]]](template.getOrElse("additionalProps", "{}"))
+        logger.info("additional prop val - {}", additionalProps)
         val enrolledUser: EnrolledUser = validateEnrolmentCriteria(event, criteria.getOrElse(config.enrollment, Map[String, AnyRef]()).asInstanceOf[Map[String, AnyRef]], certName, additionalProps)(metrics, cassandraUtil, config)
+        logger.info("enrolled user val - {}", enrolledUser)
         //validateAssessmentCriteria
         val assessedUser = validateAssessmentCriteria(event, criteria.getOrElse(config.assessment, Map[String, AnyRef]()).asInstanceOf[Map[String, AnyRef]], enrolledUser.userId, additionalProps)(metrics, cassandraUtil, contentCache, config)
+        logger.info("assessed user val - {}", assessedUser)
         //validateUserCriteria
         val userDetails = validateUser(assessedUser.userId, criteria.getOrElse(config.user, Map[String, AnyRef]()).asInstanceOf[Map[String, AnyRef]], additionalProps)(metrics, config, httpUtil)
+        logger.info("user details val - {}", userDetails)
 
         //generateCertificateEvent
         if(userDetails.nonEmpty) {
+            logger.info("event val - {}", event)
             generateCertificateEvent(event, template, userDetails, enrolledUser, assessedUser, additionalProps, certName)(metrics, config, cache, httpUtil)
         } else {
             logger.info(s"""User :: ${event.userId} did not match the criteria for batch :: ${event.batchId} and course :: ${event.courseId}""")
@@ -92,8 +99,9 @@ trait IssueCertificateHelper {
 
     def validateUser(userId: String, userCriteria: Map[String, AnyRef], additionalProps: Map[String, List[String]])(metrics:Metrics, config:CollectionCertPreProcessorConfig, httpUtil: HttpUtil) = {
         if(!userId.isEmpty) {
-            val url = config.learnerBasePath + config.userReadApi + "/" + userId + "?organisations,roles,locations,declarations,externalIds"
+            logger.info("pre Certificate gen called | url:: " + url)
             val result = getAPICall(url, "response")(config, httpUtil, metrics)
+            logger.info("Certificate gen called | result :: " + result)
             if(userCriteria.isEmpty || userCriteria.size == userCriteria.filter(uc => uc._2 == result.getOrElse(uc._1, null)).size) {
                 result
             } else Map[String, AnyRef]()
