@@ -63,7 +63,7 @@ class CertificateGeneratorFunction(config: CertificateGeneratorConfig, httpUtil:
   override def processElement(event: Event,
                               context: KeyedProcessFunction[String, Event, String]#Context,
                               metrics: Metrics): Unit = {
-    println("Certificate data: " + event)
+    logger.info("Certificate gen called | event:: " + event)
     metrics.incCounter(config.totalEventsCount)
     try {
       val certValidator = new CertValidator()
@@ -140,6 +140,7 @@ class CertificateGeneratorFunction(config: CertificateGeneratorConfig, httpUtil:
       }
       val related = event.related
       val certReq = generateRequest(event, certModel, reIssue)
+      logger.info("Certificate gen called | certRequest:: " + certReq)
       //make api call to registry
       uuid = callCertificateRc(config.rcCreateApi, null, certReq)
       val userEnrollmentData = UserEnrollmentData(related.getOrElse(config.BATCH_ID, "").asInstanceOf[String], certModel.identifier,
@@ -228,9 +229,11 @@ class CertificateGeneratorFunction(config: CertificateGeneratorConfig, httpUtil:
       case config.rcDeleteApi => httpUtil.delete(uri + "/" +identifier).status
       case config.rcCreateApi =>
         val plainReq: String = ScalaModuleJsonUtils.serialize(request)
+        logger.info("Certificate rc called | plain request :: " + plainReq)
         val req = removeBadChars(plainReq)
         logger.info("RC Create API request: " + req)
         val httpResponse = httpUtil.post(uri, req)
+        logger.info("Certificate rc called | response :: " + httpResponse)
         if(httpResponse.status == 200) {
           val response = ScalaJsonUtil.deserialize[Map[String, AnyRef]](httpResponse.body)
           id = response.getOrElse("result", Map[String, AnyRef]()).asInstanceOf[Map[String, AnyRef]].getOrElse(config.rcEntity, Map[String, AnyRef]()).asInstanceOf[Map[String, AnyRef]].getOrElse("osid","").asInstanceOf[String]
